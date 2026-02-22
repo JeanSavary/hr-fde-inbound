@@ -38,3 +38,31 @@ class CarrierVerifyResponse(BaseModel):
     mc_number: str
     carrier_name: str = ""
     reasons: list[str] = Field(default_factory=list)
+
+
+class CarrierInteractionRequest(BaseModel):
+    mc_number: str
+    carrier_name: Optional[str] = None
+    call_id: Optional[str] = None
+    call_length_seconds: Optional[int] = None
+    outcome: Optional[str] = None
+    load_id: Optional[str] = None
+    notes: str = ""
+
+
+class CarrierInteractionResponse(BaseModel):
+    id: str
+    mc_number: str
+    carrier_name: Optional[str] = None
+    call_id: Optional[str] = None
+    call_length_seconds: Optional[int] = None
+    outcome: Optional[str] = None
+    load_id: Optional[str] = None
+    notes: str
+    created_at: str
+
+
+class CarrierHistoryResponse(BaseModel):
+    mc_number: str
+    total_interactions: int
+    interactions: list[CarrierInteractionResponse]

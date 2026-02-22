@@ -1,12 +1,6 @@
 """
-Acme Logistics — Carrier Inbound Sales API
-Built for the HappyRobot FDE Technical Challenge.
-
-Endpoints:
-  GET  /health                    – Health check (no auth)
-  POST /api/carriers/verify       – Business eligibility check
-  GET  /api/loads/search          – Fuzzy geo load search
-  GET  /api/loads/{load_id}       – Single load details
+John's Freight — Carrier Inbound Sales API
+Built for the John's Freight FDE Technical Challenge.
 
 All /api/* endpoints require header: X-API-Key
 """
@@ -17,8 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.db.schema import init_db
-from app.db.seed import seed_cities, seed_loads
+from app.db.seed import seed_cities, seed_loads, seed_negotiation_settings
 from app.routes import health, carriers, loads, offers, calls, dashboard
+from app.routes import carrier_interactions, booked_loads, negotiation_settings
 
 
 @asynccontextmanager
@@ -26,6 +21,7 @@ async def lifespan(app: FastAPI):
     init_db()
     seed_cities()
     seed_loads()
+    seed_negotiation_settings()
     s = get_settings()
     print(f"✅ {s.app_name} ready")
     print(f"   Brokerage : {s.brokerage_name}")
@@ -35,8 +31,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Carrier Inbound Sales API",
-    description="API for HappyRobot voice agent — carrier auth, load search, negotiation, analytics.",
+    title="John's Freight API",
+    description="API for John's Freight voice agent — carrier auth, load search, negotiation, analytics.",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -50,7 +46,10 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(carriers.router)
+app.include_router(carrier_interactions.router)
 app.include_router(loads.router)
 app.include_router(offers.router)
 app.include_router(calls.router)
+app.include_router(booked_loads.router)
 app.include_router(dashboard.router)
+app.include_router(negotiation_settings.router)

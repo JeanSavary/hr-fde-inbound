@@ -89,9 +89,34 @@ def _make_seed_loads() -> list[dict]:
     return loads
 
 
-def seed_loads() -> None:
-    """Insert seed loads if table is empty."""
+_DEFAULT_NEGOTIATION_SETTINGS = {
+    "target_margin": 0.15,
+    "min_margin": 0.05,
+    "max_bump_above_loadboard": 0.03,
+}
+
+
+def seed_negotiation_settings() -> None:
+    """Insert default negotiation settings if not already present."""
     with get_db() as conn:
+        for key, value in _DEFAULT_NEGOTIATION_SETTINGS.items():
+            conn.execute(
+                """INSERT INTO negotiation_settings (key, value)
+                   VALUES (?, ?)
+                   ON CONFLICT(key) DO NOTHING""",
+                (key, value),
+            )
+
+
+def seed_loads() -> None:
+    """Insert seed loads if table is empty, and reset booking state on every startup."""
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE loads SET status='available', booked_at=NULL "
+            "WHERE status='booked'"
+        )
+        conn.execute("DELETE FROM booked_loads")
+
         if conn.execute("SELECT COUNT(*) FROM loads").fetchone()[0] > 0:
             return
         for load in _make_seed_loads():

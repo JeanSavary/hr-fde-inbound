@@ -18,6 +18,7 @@ from app.db.city_data import (
     STATE_TO_REGION,
     get_coords,
 )
+from app.models.location import ResolvedLocation
 
 log = logging.getLogger(__name__)
 
@@ -101,15 +102,11 @@ def _resolve_region(cleaned: str) -> str | None:
     return REGION_ALIASES.get(cleaned)
 
 
-async def resolve_location(raw_input: str) -> tuple[str, object]:
+async def resolve_location(raw_input: str) -> ResolvedLocation:
     """
-    Resolve origin/destination to city, state, or region.
+    Resolve origin/destination to a city, state, or region.
 
-    Returns:
-      ("city", (name, lat, lng))   — use haversine distance filtering
-      ("state", state_abbrev)      — filter loads by state (e.g. "TX")
-      ("region", region_name)      — filter loads by region (e.g. "South Central")
-
+    Returns a ResolvedLocation with type, label, and optional lat/lng.
     Raises ValueError if input cannot be resolved.
     """
     if not raw_input or not raw_input.strip():
@@ -131,23 +128,22 @@ async def resolve_location(raw_input: str) -> tuple[str, object]:
             cleaned = cleaned[: -len(suffix)]
     cleaned = cleaned.strip()
 
-    # 1. Try state (2-letter or full name) — before city to avoid "in" matching "indianapolis"
     state = _resolve_state(cleaned)
     if state:
-        return ("state", state)
+        return ResolvedLocation.state(state)
 
-    # 2. Try region
     region = _resolve_region(cleaned)
     if region:
-        return ("region", region)
+        return ResolvedLocation.region(region)
 
-    # 3. Try city (includes alias, fuzzy, Nominatim)
     city_result = _resolve_city_static(cleaned)
     if city_result:
-        return ("city", city_result)
+        name, lat, lng = city_result
+        return ResolvedLocation.city(name, lat, lng)
     geocode = await _geocode_city(raw_input.strip())
     if geocode:
-        return ("city", geocode)
+        name, lat, lng = geocode
+        return ResolvedLocation.city(name, lat, lng)
 
     raise ValueError(f"Could not resolve location: '{raw_input}'")
 

@@ -1,0 +1,10 @@
+.venv
+__pycache__
+*.pyc
+.git
+.ruff_cache
+.vscode
+certs/
+data/*.db
+.env
+*.md

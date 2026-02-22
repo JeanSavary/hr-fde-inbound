@@ -30,7 +30,32 @@ def init_db() -> None:
                 num_of_pieces INTEGER DEFAULT 0,
                 miles INTEGER NOT NULL,
                 dimensions TEXT DEFAULT '',
-                status TEXT DEFAULT 'available'
+                status TEXT DEFAULT 'available',
+                booked_at TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS carrier_interactions (
+                id TEXT PRIMARY KEY,
+                mc_number TEXT NOT NULL,
+                carrier_name TEXT,
+                call_id TEXT,
+                call_length_seconds INTEGER,
+                outcome TEXT,
+                load_id TEXT,
+                notes TEXT DEFAULT '',
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS booked_loads (
+                id TEXT PRIMARY KEY,
+                load_id TEXT NOT NULL,
+                mc_number TEXT NOT NULL,
+                carrier_name TEXT,
+                agreed_rate REAL NOT NULL,
+                agreed_pickup_datetime TEXT,
+                offer_id TEXT,
+                call_id TEXT,
+                created_at TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS offers (
@@ -43,7 +68,18 @@ def init_db() -> None:
                 round_number INTEGER DEFAULT 1,
                 status TEXT DEFAULT 'pending',
                 notes TEXT DEFAULT '',
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                original_rate REAL,
+                rate_difference REAL,
+                rate_difference_pct REAL,
+                original_pickup_datetime TEXT,
+                agreed_pickup_datetime TEXT,
+                pickup_changed INTEGER DEFAULT 0
+            );
+
+            CREATE TABLE IF NOT EXISTS negotiation_settings (
+                key   TEXT PRIMARY KEY,
+                value REAL NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS calls (
@@ -64,6 +100,8 @@ def init_db() -> None:
                 sentiment TEXT NOT NULL,
                 duration_seconds INTEGER,
                 transcript TEXT,
+                summary TEXT,
+                key_points TEXT,
                 created_at TEXT NOT NULL
             );
         """)

@@ -16,10 +16,10 @@ log = logging.getLogger(__name__)
 
 FMCSA_BASE = "https://mobile.fmcsa.dot.gov/qc/services/carriers/docket-number"
 
-_RETRY_ATTEMPTS = 2
-_RETRY_INITIAL_DELAY = 1.0  # seconds
-_RETRY_BACKOFF = 2.0
-_RETRY_MAX_DELAY = 100.0
+_RETRY_ATTEMPTS = 4
+_RETRY_INITIAL_DELAY = 0.5  # seconds
+_RETRY_BACKOFF = 1.5
+_RETRY_MAX_DELAY = 30
 
 # Keyed by (mc, web_key) so mock and live results stay separate
 _fmcsa_cache: TTLCache = TTLCache(maxsize=512, ttl=3600)
@@ -72,6 +72,8 @@ async def lookup_fmcsa(mc_number: str, web_key: str = "") -> FMCSACarrier:
             for attempt in range(1, _RETRY_ATTEMPTS + 1):
                 try:
                     resp = await client.get(url)
+                    print(resp.status_code)
+                    print(resp.json())
                     if resp.status_code == 200:
                         data = resp.json()
                         content = data.get("content", [])
@@ -126,15 +128,15 @@ def _parse_carrier(mc: str, c: dict) -> FMCSACarrier:
 
     return FMCSACarrier(
         mc_number=mc,
-        dot_number=str(c.get("dotNumber", "")),
-        legal_name=c.get("legalName", "UNKNOWN"),
-        dba_name=c.get("dbaName", ""),
+        dot_number=str(c.get("dotNumber") or ""),
+        legal_name=c.get("legalName") or "UNKNOWN",
+        dba_name=c.get("dbaName") or "",
         status=status,
-        authority_status=c.get("commonAuthorityStatus", "I"),
+        authority_status=c.get("commonAuthorityStatus") or "I",
         entity_type=entity_type,
         safety_rating=c.get("safetyRating") or "N",
         out_of_service=c.get("allowedToOperate", "Y") != "Y",
-        phone=c.get("phoneNumber", ""),
+        phone=c.get("phoneNumber") or "",
         physical_address=", ".join(addr_parts),
         bipd_insurance_on_file=int(c.get("bipdInsuranceOnFile") or 0),
         bipd_required_amount=int(c.get("bipdRequiredAmount") or 0),

@@ -10,9 +10,14 @@ def insert_offer(offer: dict) -> dict:
     with get_db() as conn:
         conn.execute(
             """INSERT INTO offers
-               (offer_id, call_id, load_id, mc_number, offer_amount,
-                offer_type, round_number, status, notes, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+               (offer_id, call_id, load_id, mc_number,
+                offer_amount, offer_type, round_number,
+                status, notes, created_at,
+                original_rate, rate_difference,
+                rate_difference_pct,
+                original_pickup_datetime,
+                agreed_pickup_datetime, pickup_changed)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 offer["offer_id"],
                 offer.get("call_id"),
@@ -24,6 +29,12 @@ def insert_offer(offer: dict) -> dict:
                 offer.get("status", "pending"),
                 offer.get("notes", ""),
                 offer["created_at"],
+                offer.get("original_rate"),
+                offer.get("rate_difference"),
+                offer.get("rate_difference_pct"),
+                offer.get("original_pickup_datetime"),
+                offer.get("agreed_pickup_datetime"),
+                offer.get("pickup_changed", False),
             ),
         )
     return offer

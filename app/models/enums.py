@@ -2,6 +2,9 @@ from enum import Enum
 
 
 class EquipmentType(str, Enum):
+    """Equipment type for loads. Values: dry_van, reefer, flatbed,
+    step_deck, power_only."""
+
     DRY_VAN = "dry_van"
     REEFER = "reefer"
     FLATBED = "flatbed"
@@ -20,6 +23,12 @@ class OfferStatus(str, Enum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     EXPIRED = "expired"
+
+
+class Verdict(str, Enum):
+    ACCEPT = "accept"
+    COUNTER = "counter"
+    REJECT = "reject"
 
 
 class CallOutcome(str, Enum):

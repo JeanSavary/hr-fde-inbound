@@ -1,187 +1,175 @@
-# Acme Logistics — Carrier Inbound Sales API
+# Carrier Inbound Sales API
 
-FastAPI backend for the HappyRobot voice agent demo. Handles carrier authentication,
-load search (city/state/region, alternatives with pitch-ready differences), negotiation
-logging, and dashboard analytics.
+FastAPI backend for the HappyRobot voice-agent demo. Handles carrier verification (FMCSA), load search with fuzzy geo-matching, rate negotiation, booking, and analytics.
 
 ## Quick Start
 
-```bash
-# 1. Clone / cd into project
-cd happy-robot
+### Local (uv)
 
-# 2. Install dependencies (uv)
+```bash
+cp .env.example .env   # fill in your values
 uv sync --group dev
-
-# 3. Optional: copy .env.example and edit for production
-# cp .env.example .env
-
-# 4. Run server
 uv run uvicorn app.main:app --reload
-
-# 5. Test everything
-uv run python test_api.py
 ```
 
-Server starts at **http://localhost:8000**
-Swagger docs at **http://localhost:8000/docs**
+Server: **http://localhost:8000** | Docs: **http://localhost:8000/docs**
 
-### Dev
+### Docker
 
 ```bash
-uv run ruff format app    # format code
-uv run ruff check app     # lint
+cp .env.example .env   # fill in your values
+docker compose up --build
 ```
 
-### With Docker
+### Expose via ngrok (for HappyRobot testing)
+
+Add your `NGROK_AUTHTOKEN` to `.env`, then:
 
 ```bash
-docker-compose up --build
+./scripts/tunnel.sh
 ```
+
+The public HTTPS URL is printed in the terminal -- paste it into the HappyRobot platform.
+
+---
+
+## Deploy to Railway
+
+1. Push this repo to GitHub.
+2. Create a new project on [Railway](https://railway.app) and connect the repo.
+3. Add environment variables in the Railway dashboard (see table below).
+4. Railway auto-deploys from the `Dockerfile`. The health check hits `/health`.
+5. Your public URL is shown in the Railway dashboard under **Settings > Networking > Public Networking**.
 
 ---
 
 ## Authentication
 
-All `/api/*` endpoints require:
+All `/api/*` endpoints require the header:
 
 ```
-X-API-Key: dev-api-key-change-me
+X-API-Key: <your API_KEY>
 ```
+
+The `/health` endpoint is public.
 
 ---
 
 ## Endpoints
 
-| Method | Endpoint               | Purpose                                       |
-| ------ | ---------------------- | --------------------------------------------- |
-| GET    | `/health`              | Health check (no auth)                        |
-| POST   | `/api/carriers/verify` | Business eligibility check                    |
-| GET    | `/api/loads/search`    | Load search (city/state/region, alternatives) |
-| GET    | `/api/loads/{load_id}` | Single load details                           |
+| Method | Path                                     | Description                                       |
+| ------ | ---------------------------------------- | ------------------------------------------------- |
+| GET    | `/health`                                | Health check (no auth)                            |
+| POST   | `/api/carriers/verify`                   | Carrier eligibility (FMCSA)                       |
+| POST   | `/api/carriers/interactions`             | Log carrier interaction                           |
+| GET    | `/api/carriers/{mc_number}/interactions` | Carrier interaction history                       |
+| POST   | `/api/loads/search`                      | Search loads (city/state/region)                  |
+| GET    | `/api/loads/{load_id}`                   | Single load details                               |
+| POST   | `/api/loads/reschedule`                  | Check reschedule feasibility                      |
+| POST   | `/api/offers/analyze`                    | Analyze an offer against boundaries (depreciated) |
+| POST   | `/api/booked-loads`                      | Book a load                                       |
+| GET    | `/api/booked-loads`                      | List bookings                                     |
+| GET    | `/api/booked-loads/{load_id}`            | Booking details                                   |
+| POST   | `/api/calls`                             | Log a call                                        |
+| GET    | `/api/calls`                             | List calls                                        |
+| GET    | `/api/calls/{call_id}`                   | Call details                                      |
+| GET    | `/api/settings/negotiation`              | Get negotiation settings                          |
+| PUT    | `/api/settings/negotiation`              | Update negotiation settings                       |
 
-*Offers, Calls, and Dashboard endpoints exist but are hidden from Swagger docs.*
-
----
-
-## Mock Carriers for Demo
-
-| MC Number  | Carrier              | Status         | Outcome     |
-| ---------- | -------------------- | -------------- | ----------- |
-| **123456** | Swift Haul Logistics | Active, clean  | ✅ Eligible |
-| **789012** | Heartland Express    | Active, clean  | ✅ Eligible |
-| **456789** | Cold Chain Carriers  | Active, clean  | ✅ Eligible |
-| **111111** | Defunct Trucking Co  | Inactive       | ❌ Rejected |
-| **222222** | Risky Freight LLC    | Out of Service | ❌ Rejected |
-| **333333** | New Carrier Pending  | No authority   | ❌ Rejected |
-| **999999** | (any other)          | Not found      | ❌ Rejected |
-
----
-
-## Seed Loads
-
-51 loads across major US freight corridors (from `data/loads.json`). Equipment types: Dry Van, Reefer, Flatbed, Step Deck, Power Only.
-
-| ID      | Lane                                    | Equipment  | Rate   |
-| ------- | --------------------------------------- | ---------- | ------ |
-| LD-1001 | Dallas → Chicago                        | Dry Van    | $2,150 |
-| LD-1002 | Atlanta → Miami                         | Reefer     | $1,850 |
-| LD-1004 | Houston → Memphis                       | Dry Van    | $1,420 |
-| LD-1008 | Newark → Boston                         | Reefer     | $680   |
-| LD-1024 | Columbus → Buffalo                      | Dry Van    | $820   |
-| LD-1031 | Atlanta → Dallas                        | Dry Van    | $1,950 |
-| LD-1037 | Houston → Memphis                       | Dry Van    | $1,550 |
-| LD-1042 | Houston → Dallas                        | Step Deck  | $980   |
-| LD-1047 | Dallas → Houston                        | Power Only | $550   |
-| …       | _(see `data/loads.json` for full list)_ |            |        |
-
----
-
-## Load Search Features
-
-The `/api/loads/search` endpoint supports flexible origin/destination and returns enriched load data.
-
-### Origin & Destination: City, State, or Region
-
-| Input type | Examples                                                                                            |
-| ---------- | --------------------------------------------------------------------------------------------------- |
-| **City**   | `Dallas`, `Dallas, TX`, `Houston`, `Chicago`                                                        |
-| **State**  | `TX`, `Texas`, `CA`, `California`                                                                   |
-| **Region** | `South Central`, `West Coast`, `Midwest`, `Northeast`, `Southeast`, `Great Plains`, `Mountain West` |
-
-Examples: `origin=TX&destination=Northeast`, `origin=South Central&destination=Houston`
-
-### Response Enrichment
-
-Each load includes:
-
-- **`rate_per_mile`** — `loadboard_rate ÷ miles`
-- **`deadhead_miles`** — Distance from requested origin to load pickup (0 if origin is state/region)
-- **`deadend_miles`** — Distance from load delivery to requested destination (0 if none or state/region)
-
-### Alternative Loads
-
-When fewer than 3 strict matches are found, up to 5 **alternative_loads** are returned. Each has a `differences` array explaining what doesn’t match (e.g. equipment type, pickup location, destination). Total results (strict + alternatives) never exceed 5.
-
-### Geo Resolution
-
-- **Fuzzy matching**: "dalas" → Dallas, TX
-- **Aliases**: "DFW", "ATL", "Chi-town", "H-town", "the Bay"
-- **Prefix strips**: "near Dallas", "around Houston", "Dallas area"
-- **Radius search**: 75mi default (configurable) for city-based queries
-- **Nominatim fallback**: Unknown cities geocoded on-the-fly
-
----
-
-## Negotiation Boundaries
-
-The `/api/offers` endpoint returns `rate_floor` and `rate_ceiling` with every offer:
-
-- **Floor** = `loadboard_rate × 0.90` (lowest acceptable)
-- **Ceiling** = `loadboard_rate × 1.10` (auto-reject above this)
-- Configurable via `RATE_FLOOR_PERCENT` and `RATE_CEILING_PERCENT` in `.env`
+Full request/response schemas available at `/docs`.
 
 ---
 
 ## Environment Variables
 
-| Variable                      | Default                 | Description                    |
-| ----------------------------- | ----------------------- | ------------------------------ |
-| `API_KEY`                     | `dev-api-key-change-me` | API authentication key         |
-| `FMCSA_WEB_KEY`               | _(empty = mock)_        | FMCSA API key for live lookups |
-| `BROKERAGE_NAME`              | Acme Logistics          | Company name for prompts       |
-| `AGENT_NAME`                  | John                    | Agent persona name             |
-| `DEFAULT_SEARCH_RADIUS_MILES` | 75                      | Geo search radius              |
-| `RATE_FLOOR_PERCENT`          | 0.90                    | Minimum rate (× loadboard)     |
-| `RATE_CEILING_PERCENT`        | 1.10                    | Maximum rate (× loadboard)     |
-| `MAX_NEGOTIATION_ROUNDS`      | 3                       | Rounds before final offer      |
+| Variable                      | Default                 | Description                     |
+| ----------------------------- | ----------------------- | ------------------------------- |
+| `API_KEY`                     | `dev-api-key-change-me` | API authentication key          |
+| `FMCSA_WEB_KEY`               | _(empty = mock)_        | FMCSA API key for live lookups  |
+| `BROKERAGE_NAME`              | `Acme Logistics`        | Company name used in prompts    |
+| `AGENT_NAME`                  | `John`                  | Agent persona name              |
+| `DEFAULT_SEARCH_RADIUS_MILES` | `75`                    | Geo search radius (miles)       |
+| `RATE_FLOOR_PERCENT`          | `0.90`                  | Min acceptable rate multiplier  |
+| `RATE_CEILING_PERCENT`        | `1.10`                  | Max acceptable rate multiplier  |
+| `MAX_NEGOTIATION_ROUNDS`      | `3`                     | Rounds before final offer       |
+| `NGROK_AUTHTOKEN`             | _(empty)_               | ngrok token (local tunnel only) |
+
+---
+
+## Load Dataset (`data/loads.json`)
+
+The seed dataset contains **51 loads** for recruiter testing. Use this distribution to choose representative lanes, equipment types, and regions.
+
+### Equipment Type Distribution
+
+| Equipment Type | Count | Share |
+| -------------- | ----- | ----- |
+| Dry Van        | 23    | 45%   |
+| Reefer         | 10    | 20%   |
+| Flatbed        | 8     | 16%   |
+| Step Deck      | 5     | 10%   |
+| Power Only     | 5     | 10%   |
+
+### States / Regions
+
+Loads touch **34 states**. Most represented (by origin + destination frequency):
+
+| State      | Loads  |
+| ---------- | ------ |
+| TX         | 26     |
+| GA         | 8      |
+| CA         | 7      |
+| TN         | 7      |
+| FL         | 6      |
+| IL, PA, AZ | 4 each |
+| NC, MO     | 3 each |
+
+### Sample Lanes (for testing)
+
+| Lane                          | Count | Notes                            |
+| ----------------------------- | ----- | -------------------------------- |
+| Atlanta, GA → Miami, FL       | 2     | Reefer / Power Only              |
+| Los Angeles, CA → Phoenix, AZ | 2     | Flatbed / Power Only             |
+| Houston, TX → Memphis, TN     | 2     | Dry Van                          |
+| Dallas, TX → Houston, TX      | 2     | Dry Van / Step Deck / Power Only |
+| Dallas, TX → Chicago, IL      | 1     | Dry Van, ~920 mi                 |
+| Salinas, CA → Denver, CO      | 1     | Reefer, ~1140 mi                 |
+
+### Cities (54 unique)
+
+**Texas:** Dallas, Fort Worth, Houston, San Antonio, Austin, Laredo, El Paso  
+**California:** Los Angeles, Sacramento, Fresno, Bakersfield, Salinas  
+**Southeast:** Atlanta, Charlotte, Jacksonville, Miami, Tampa, Orlando, Nashville, Memphis, Birmingham, Savannah  
+**Midwest:** Chicago, Detroit, Indianapolis, Columbus, Milwaukee, St. Louis, Kansas City, Omaha, Des Moines, Minneapolis, Wichita  
+**Northeast:** Newark, Philadelphia, Pittsburgh, Boston, Baltimore, Harrisburg, Buffalo  
+**Southwest:** Phoenix, Tucson, Albuquerque, Las Vegas, Reno  
+**Other:** Seattle, Portland, Denver, Salt Lake City, New Orleans, Louisville, Little Rock, Oklahoma City, Richmond
+
+### Miles & Commodity
+
+- **Miles:** 32–1,140 (avg ~363)
+- **Commodity types:** 40+ (e.g. Fresh Produce, Frozen Meat, Steel, Lumber, Pharmaceuticals, E-Commerce Goods)
 
 ---
 
 ## Project Structure
 
 ```
-happy-robot/
-├── app/
-│   ├── config.py              # Settings from .env
-│   ├── main.py                # FastAPI app, lifespan, routes
-│   ├── models/                # Pydantic schemas (load, carrier, offer, call)
-│   ├── routes/                # API endpoints (health, carriers, loads, etc.)
-│   ├── services/              # Business logic (carrier, load, call)
-│   ├── db/
-│   │   ├── schema.py          # Table definitions
-│   │   ├── seed.py            # Cities + loads seeding
-│   │   ├── city_data.py       # 363 US cities with state/region metadata
-│   │   ├── connection.py      # SQLite connection
-│   │   └── repositories/      # Data access layer
-│   └── utils/
-│       ├── geo.py             # City/state/region resolution, haversine, Nominatim
-│       └── fmcsa.py           # FMCSA lookup (used by carriers/verify)
-├── data/
-│   ├── loads.json            # Seed load data
-│   └── carrier.db            # SQLite (auto-created)
-├── pyproject.toml            # uv dependencies, ruff config
-├── .env                      # Environment config
-├── Dockerfile
-└── docker-compose.yml
+app/
+├── config.py              # Settings (.env)
+├── main.py                # FastAPI app, lifespan, routes
+├── prompts.py             # AI prompt templates
+├── models/                # Pydantic schemas
+├── routes/                # API endpoints + auth middleware
+├── services/              # Business logic
+├── schemas/               # JSON schemas (LLM structured output)
+├── db/
+│   ├── schema.py          # Table definitions
+│   ├── seed.py            # Data seeding (cities, loads)
+│   ├── city_data.py       # 363 US cities with metadata
+│   ├── connection.py      # SQLite connection
+│   └── repositories/      # Data access layer
+└── utils/
+    ├── geo.py             # Geo resolution, haversine, fuzzy match
+    └── fmcsa.py           # FMCSA carrier lookup
 ```

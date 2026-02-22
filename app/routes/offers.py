@@ -1,6 +1,11 @@
 from fastapi import APIRouter, HTTPException, Security
-from app.models.offer import OfferCreateRequest, OfferResponse
-from app.services.offer_service import create_offer
+from app.models.offer import (
+    OfferCreateRequest,
+    OfferResponse,
+    OfferAnalysisRequest,
+    OfferAnalysisResponse,
+)
+from app.services.offer_service import create_offer, analyze_offer
 from app.config import get_settings
 from app.routes._auth import verify_api_key
 
@@ -22,3 +27,24 @@ async def create_offer_route(req: OfferCreateRequest):
     if error:
         raise HTTPException(404, error)
     return response
+
+
+@router.post(
+    "/analyze",
+    response_model=OfferAnalysisResponse,
+    dependencies=[Security(verify_api_key)],
+)
+async def analyze_offer_route(req: OfferAnalysisRequest):
+    """
+    Analyze a carrier's ask against a specific load.
+    Returns accept, counter (with counter_offers list),
+    or reject (with reason).
+    """
+    s = get_settings()
+    result, error = analyze_offer(
+        req, s.rate_floor_percent, s.rate_ceiling_percent
+    )
+    if error:
+        status = 409 if "already booked" in error else 404
+        raise HTTPException(status, error)
+    return result
