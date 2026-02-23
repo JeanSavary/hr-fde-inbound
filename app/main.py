@@ -1,6 +1,6 @@
 """
-John's Freight — Carrier Inbound Sales API
-Built for the John's Freight FDE Technical Challenge.
+Acme Logistics — Carrier Inbound Sales API
+Built for the Acme Logistics FDE Technical Challenge.
 
 All /api/* endpoints require header: X-API-Key
 """
@@ -31,8 +31,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="John's Freight API",
-    description="API for John's Freight voice agent — carrier auth, load search, negotiation, analytics.",
+    title="Acme Logistics API",
+    description="API for Acme Logistics voice agent — carrier auth, load search, negotiation, analytics.",
     version="1.0.0",
     lifespan=lifespan,
 )
