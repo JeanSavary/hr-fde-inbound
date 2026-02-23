@@ -130,13 +130,14 @@ def seed_negotiation_settings() -> None:
 
 
 def seed_loads() -> None:
-    """Insert seed loads if table is empty, and reset booking state on every startup."""
+    """Insert seed loads if table is empty, and reset seed booking state on every startup."""
     with get_db() as conn:
         conn.execute(
             "UPDATE loads SET status='available', booked_at=NULL "
-            "WHERE status='booked'"
+            "WHERE status='booked' AND load_id NOT IN "
+            "(SELECT load_id FROM booked_loads WHERE id LIKE 'BK-%')"
         )
-        conn.execute("DELETE FROM booked_loads")
+        conn.execute("DELETE FROM booked_loads WHERE id LIKE '00000000-0000-4000%'")
 
         if conn.execute("SELECT COUNT(*) FROM loads").fetchone()[0] > 0:
             return

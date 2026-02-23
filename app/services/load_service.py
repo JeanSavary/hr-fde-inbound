@@ -245,15 +245,16 @@ async def search_loads(
             matched_ids.add(load["load_id"])
             miles = load["miles"] or 1
             rate = load["loadboard_rate"]
+            floor = round(rate * (1 - target_margin), 2)
             matches.append(
                 SearchResultLoad(
                     **load,
-                    rate_per_mile=round(rate / miles, 2),
+                    rate_per_mile=round(floor / miles, 2),
                     deadhead_miles=round(o_dist, 1),
                     deadend_miles=round(d_dist, 1)
                     if d_dist is not None
                     else 0.0,
-                    floor_rate=round(rate * (1 - target_margin), 2),
+                    floor_rate=floor,
                     max_rate=round(rate * (1 + max_bump), 2),
                 )
             )
@@ -333,13 +334,14 @@ async def search_loads(
 
         miles = load["miles"] or 1
         rate = load["loadboard_rate"]
+        floor = round(rate * (1 - target_margin), 2)
         alternatives.append(
             AlternativeLoad(
                 **load,
-                rate_per_mile=round(rate / miles, 2),
+                rate_per_mile=round(floor / miles, 2),
                 deadhead_miles=round(o_dist, 1),
                 deadend_miles=round(d_dist, 1) if d_dist is not None else 0.0,
-                floor_rate=round(rate * (1 - target_margin), 2),
+                floor_rate=floor,
                 max_rate=round(rate * (1 + max_bump), 2),
                 differences=diffs,
             )
@@ -411,13 +413,14 @@ async def search_loads_by_lane(
 
         miles = load["miles"] or 1
         rate = load["loadboard_rate"]
+        floor = round(rate * (1 - target_margin), 2)
         matches.append(
             SearchResultLoad(
                 **load,
-                rate_per_mile=round(rate / miles, 2),
+                rate_per_mile=round(floor / miles, 2),
                 deadhead_miles=round(o_dist, 1),
                 deadend_miles=round(d_dist, 1) if d_dist is not None else 0.0,
-                floor_rate=round(rate * (1 - target_margin), 2),
+                floor_rate=floor,
                 max_rate=round(rate * (1 + max_bump), 2),
             )
         )
@@ -481,6 +484,9 @@ def list_loads(
         order=order,
     )
 
+    ns = get_all_settings()
+    target_margin = ns.get("target_margin", 0.15)
+
     now = datetime.now(timezone.utc)
     enriched: list[LoadWithStatus] = []
     for r in rows:
@@ -495,8 +501,9 @@ def list_loads(
         )
 
         miles = r.get("miles", 0)
+        floor_rate = r["loadboard_rate"] * (1 - target_margin)
         rate_per_mile = (
-            round(r["loadboard_rate"] / miles, 2) if miles > 0 else None
+            round(floor_rate / miles, 2) if miles > 0 else None
         )
 
         db_status = r.get("status", "available")
@@ -525,7 +532,7 @@ def list_loads(
         enriched.append(load)
 
     # KPIs (period + status only, independent of table filters)
-    kpi_data = get_loads_kpis(since=since, status=status)
+    kpi_data = get_loads_kpis(since=since, status=status, target_margin=target_margin)
     critical_count = 0
     for r in kpi_data["urgency_data"]:
         dl = _days_listed_from_created_at(r.get("created_at"), now)

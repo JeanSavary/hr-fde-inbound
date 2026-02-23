@@ -9,9 +9,6 @@ class Settings(BaseSettings):
     brokerage_name: str = "Acme Logistics"
     agent_name: str = "John"
     default_search_radius_miles: int = 75
-    rate_floor_percent: float = 0.90
-    rate_ceiling_percent: float = 1.10
-    max_negotiation_rounds: int = 3
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

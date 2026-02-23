@@ -96,7 +96,9 @@ def mark_load_booked(load_id: str, booked_at: str) -> None:
 
 
 def get_loads_kpis(
-    since: str | None = None, status: str | None = None
+    since: str | None = None,
+    status: str | None = None,
+    target_margin: float = 0.15,
 ) -> dict:
     """Aggregate KPIs and urgency data across all loads in the period."""
     clauses: list[str] = []
@@ -109,15 +111,17 @@ def get_loads_kpis(
         params.append(status)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
 
+    floor_factor = 1 - target_margin
+
     with get_db() as conn:
         row = conn.execute(
             f"SELECT "
             f"  COUNT(*) AS total_loads, "
             f"  AVG(CASE WHEN loads.miles > 0 "
-            f"      THEN loads.loadboard_rate * 1.0 / loads.miles "
+            f"      THEN loads.loadboard_rate * ? / loads.miles "
             f"      ELSE NULL END) AS avg_rpm "
             f"FROM loads {where}",
-            params,
+            [floor_factor] + params,
         ).fetchone()
 
         urgency_rows = conn.execute(

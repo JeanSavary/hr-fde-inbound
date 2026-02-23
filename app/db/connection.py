@@ -1,8 +1,9 @@
+import os
 import sqlite3
 from pathlib import Path
 from contextlib import contextmanager
 
-DB_PATH = Path("data/carrier.db")
+DB_PATH = Path(os.environ.get("DB_PATH", "data/carrier.db"))
 
 
 def _connect() -> sqlite3.Connection:
