@@ -7,6 +7,7 @@ from app.services.booked_load_service import (
     list_bookings,
 )
 from app.routes._auth import verify_api_key
+from app.utils.period import Period
 
 router = APIRouter(prefix="/api/booked-loads", tags=["Booked Loads"])
 
@@ -36,10 +37,11 @@ async def create_booking(req: BookedLoadRequest):
 async def list_all_bookings(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    period: Period = Query(Period.last_month, description="Time period filter"),
 ):
     """List confirmed bookings with pagination."""
     offset = (page - 1) * page_size
-    return list_bookings(offset=offset, limit=page_size, page=page, page_size=page_size)
+    return list_bookings(offset=offset, limit=page_size, page=page, page_size=page_size, period=period.value)
 
 
 @router.get(

@@ -13,6 +13,7 @@ from app.models.load import (
     PickupRescheduleResponse,
 )
 from app.routes._auth import verify_api_key
+from app.utils.period import Period
 from app.services.load_service import (
     check_pickup_reschedule,
     get_load,
@@ -112,6 +113,7 @@ async def list_loads_route(
     urgency: Optional[str] = Query(
         None, description="Filter by urgency: critical, high, normal"
     ),
+    period: Period = Query(Period.last_month, description="Time period filter"),
     sort: str = Query(
         "pickup_datetime", description="Sort field"
     ),
@@ -130,6 +132,7 @@ async def list_loads_route(
         origin=origin,
         destination=destination,
         urgency=urgency,
+        period=period.value,
         page=page,
         page_size=page_size,
         sort=sort,

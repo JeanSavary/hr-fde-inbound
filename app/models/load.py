@@ -199,3 +199,6 @@ class LoadListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+    kpi_total_loads: int = 0
+    kpi_critical_count: int = 0
+    kpi_avg_rate_per_mile: Optional[float] = None

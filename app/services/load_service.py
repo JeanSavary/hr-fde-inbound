@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from app.db.repositories.load_repo import get_all_loads, get_load_by_id, get_loads_paginated
+from app.db.repositories.load_repo import get_all_loads, get_load_by_id, get_loads_paginated, get_loads_kpis
 from app.db.repositories.negotiation_settings_repo import get_all_settings
 from app.models.load import (
     AlternativeLoad,
@@ -15,6 +15,7 @@ from app.models.load import (
 from app.models.location import ResolvedLocation
 from app.db.city_data import get_location_meta
 from app.utils.geo import haversine_miles, resolve_location
+from app.utils.period import period_since
 
 _PERISHABLE_KEYWORDS = {"temp-controlled", "seafood", "produce", "frozen", "perishable", "dairy", "meat"}
 
@@ -427,22 +428,34 @@ def get_load(load_id: str) -> Load | None:
     return Load(**load) if load else None
 
 
+def _days_listed_from_created_at(created_at: str | None, now: datetime) -> int:
+    if not created_at:
+        return 0
+    created_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    if created_dt.tzinfo is None:
+        created_dt = created_dt.replace(tzinfo=timezone.utc)
+    return max(0, (now - created_dt).days)
+
+
 def list_loads(
     status: str | None = None,
     equipment_type: str | None = None,
     origin: str | None = None,
     destination: str | None = None,
     urgency: str | None = None,
+    period: str = "last_month",
     page: int = 1,
     page_size: int = 50,
     sort: str = "pickup_datetime",
     order: str = "asc",
 ) -> LoadListResponse:
+    since = period_since(period)
     rows, total = get_loads_paginated(
         status=status,
         equipment_type=equipment_type,
         origin=origin,
         destination=destination,
+        since=since,
         page=page,
         page_size=page_size,
         sort=sort,
@@ -452,19 +465,9 @@ def list_loads(
     now = datetime.now(timezone.utc)
     enriched: list[LoadWithStatus] = []
     for r in rows:
-        # Compute days_listed
-        created_at = r.get("created_at")
-        if created_at:
-            created_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-            if created_dt.tzinfo is None:
-                created_dt = created_dt.replace(tzinfo=timezone.utc)
-            days_listed = max(0, (now - created_dt).days)
-        else:
-            days_listed = 0
-
+        days_listed = _days_listed_from_created_at(r.get("created_at"), now)
         pitch_count = r.get("pitch_count", 0)
 
-        # Compute urgency
         computed_urgency = _compute_urgency(
             pitch_count=pitch_count,
             days_listed=days_listed,
@@ -472,16 +475,13 @@ def list_loads(
             notes=r.get("notes", ""),
         )
 
-        # Compute rate_per_mile
         miles = r.get("miles", 0)
         rate_per_mile = round(r["loadboard_rate"] / miles, 2) if miles > 0 else None
 
-        # Derive status: "matching" if active carrier_thinking calls exist
         db_status = r.get("status", "available")
         active_thinking = r.get("active_thinking_calls", 0)
         effective_status = "matching" if db_status == "available" and active_thinking > 0 else db_status
 
-        # Strip computed subquery fields and status before passing to model
         extra_keys = {"pitch_count", "active_thinking_calls", "status"}
         base = {k: v for k, v in r.items() if k not in extra_keys}
 
@@ -494,17 +494,28 @@ def list_loads(
             rate_per_mile=rate_per_mile,
         )
 
-        # Post-filter by urgency if specified
         if urgency and load.urgency != urgency:
             continue
 
         enriched.append(load)
+
+    # KPIs (period + status only, independent of table filters)
+    kpi_data = get_loads_kpis(since=since, status=status)
+    critical_count = 0
+    for r in kpi_data["urgency_data"]:
+        dl = _days_listed_from_created_at(r.get("created_at"), now)
+        u = _compute_urgency(r.get("pitch_count", 0), dl, r.get("commodity_type", ""), r.get("notes", ""))
+        if u == "critical":
+            critical_count += 1
 
     return LoadListResponse(
         loads=enriched,
         total=len(enriched) if urgency else total,
         page=page,
         page_size=page_size,
+        kpi_total_loads=kpi_data["total_loads"],
+        kpi_critical_count=critical_count,
+        kpi_avg_rate_per_mile=kpi_data["avg_rate_per_mile"],
     )
 
 

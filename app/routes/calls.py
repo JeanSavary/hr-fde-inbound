@@ -10,6 +10,7 @@ from app.models.call import (
 )
 from app.services.call_service import log_call, get_call, list_calls
 from app.routes._auth import verify_api_key
+from app.utils.period import Period
 
 router = APIRouter(prefix="/api/calls", tags=["Calls"])
 
@@ -37,6 +38,7 @@ async def list_calls_route(
         None, description="Filter by carrier sentiment"
     ),
     mc_number: Optional[str] = Query(None, description="Filter by carrier MC number"),
+    period: Period = Query(Period.last_month, description="Time period filter"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=100, description="Results per page"),
 ):
@@ -45,6 +47,7 @@ async def list_calls_route(
         outcome=outcome,
         sentiment=sentiment,
         mc_number=mc_number,
+        period=period.value,
         page=page,
         page_size=page_size,
     )

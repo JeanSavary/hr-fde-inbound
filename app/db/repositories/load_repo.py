@@ -20,6 +20,7 @@ def get_loads_paginated(
     equipment_type: str | None = None,
     origin: str | None = None,
     destination: str | None = None,
+    since: str | None = None,
     page: int = 1,
     page_size: int = 50,
     sort: str = "pickup_datetime",
@@ -28,6 +29,9 @@ def get_loads_paginated(
     clauses: list[str] = []
     params: list = []
 
+    if since:
+        clauses.append("loads.created_at >= ?")
+        params.append(since)
     if status:
         clauses.append("loads.status = ?")
         params.append(status)
@@ -83,3 +87,42 @@ def mark_load_booked(load_id: str, booked_at: str) -> None:
             "UPDATE loads SET status='booked', booked_at=? WHERE load_id=?",
             (booked_at, load_id),
         )
+
+
+def get_loads_kpis(
+    since: str | None = None, status: str | None = None
+) -> dict:
+    """Aggregate KPIs and urgency data across all loads in the period."""
+    clauses: list[str] = []
+    params: list = []
+    if since:
+        clauses.append("loads.created_at >= ?")
+        params.append(since)
+    if status:
+        clauses.append("loads.status = ?")
+        params.append(status)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+    with get_db() as conn:
+        row = conn.execute(
+            f"SELECT "
+            f"  COUNT(*) AS total_loads, "
+            f"  AVG(CASE WHEN loads.miles > 0 "
+            f"      THEN loads.loadboard_rate * 1.0 / loads.miles "
+            f"      ELSE NULL END) AS avg_rpm "
+            f"FROM loads {where}",
+            params,
+        ).fetchone()
+
+        urgency_rows = conn.execute(
+            f"SELECT loads.commodity_type, loads.notes, loads.created_at, "
+            f"  (SELECT COUNT(*) FROM offers WHERE offers.load_id = loads.load_id) AS pitch_count "
+            f"FROM loads {where}",
+            params,
+        ).fetchall()
+
+    return {
+        "total_loads": row[0] or 0,
+        "avg_rate_per_mile": round(row[1], 2) if row[1] is not None else None,
+        "urgency_data": [dict(r) for r in urgency_rows],
+    }

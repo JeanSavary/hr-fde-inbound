@@ -12,7 +12,9 @@ from app.db.repositories.call_repo import (
     insert_call,
     get_call_by_call_id,
     get_all_calls,
+    get_calls_kpis,
 )
+from app.utils.period import period_since
 from app.db.repositories.carrier_repo import insert_interaction
 from app.db.repositories.booked_load_repo import insert_booked_load
 
@@ -69,19 +71,24 @@ def list_calls(
     outcome: Optional[str] = None,
     sentiment: Optional[str] = None,
     mc_number: Optional[str] = None,
+    period: str = "last_month",
     page: int = 1,
     page_size: int = 50,
 ) -> CallListResponse:
+    since = period_since(period)
     rows, total = get_all_calls(
         outcome=outcome,
         sentiment=sentiment,
         mc_number=mc_number,
+        since=since,
         page=page,
         page_size=page_size,
     )
+    kpis = get_calls_kpis(since)
     return CallListResponse(
         calls=[CallDetailResponse(**r) for r in rows],
         total=total,
         page=page,
         page_size=page_size,
+        **kpis,
     )

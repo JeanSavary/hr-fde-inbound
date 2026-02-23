@@ -74,12 +74,16 @@ def get_all_calls(
     outcome: Optional[str] = None,
     sentiment: Optional[str] = None,
     mc_number: Optional[str] = None,
+    since: Optional[str] = None,
     page: int = 1,
     page_size: int = 50,
 ) -> tuple[list[dict], int]:
     clauses: list[str] = []
     params: list = []
 
+    if since:
+        clauses.append("created_at >= ?")
+        params.append(since)
     if outcome:
         clauses.append("outcome = ?")
         params.append(outcome)
@@ -104,3 +108,34 @@ def get_all_calls(
         ).fetchall()
 
     return [_row_to_dict(r) for r in rows], total
+
+
+def get_calls_kpis(since: Optional[str] = None) -> dict:
+    """Aggregate KPIs across all calls in the period."""
+    clauses: list[str] = []
+    params: list = []
+    if since:
+        clauses.append("created_at >= ?")
+        params.append(since)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+    with get_db() as conn:
+        row = conn.execute(
+            f"SELECT "
+            f"  COUNT(*) AS total, "
+            f"  SUM(CASE WHEN outcome='booked' THEN 1 ELSE 0 END) AS booked, "
+            f"  COALESCE(SUM(duration_seconds), 0) AS total_duration "
+            f"FROM calls {where}",
+            params,
+        ).fetchone()
+
+    total = row[0] or 0
+    booked = row[1] or 0
+    total_duration = row[2] or 0
+
+    return {
+        "kpi_total_calls": total,
+        "kpi_booking_rate": round((booked / total) * 100, 1) if total > 0 else 0,
+        "kpi_avg_duration": round(total_duration / total) if total > 0 else 0,
+        "kpi_total_duration": total_duration,
+    }

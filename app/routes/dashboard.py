@@ -1,18 +1,10 @@
-from enum import Enum
-
 from fastapi import APIRouter, Query, Security
 from app.models.dashboard import DashboardMetrics
 from app.services.dashboard_service import get_dashboard_metrics
 from app.routes._auth import verify_api_key
+from app.utils.period import Period
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
-
-
-class Period(str, Enum):
-    today = "today"
-    last_week = "last_week"
-    last_month = "last_month"
-    all_time = "all_time"
 
 
 @router.get(

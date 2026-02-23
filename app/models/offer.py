@@ -72,6 +72,10 @@ class PaginatedBookedLoads(BaseModel):
     total: int
     page: int
     page_size: int
+    kpi_total_bookings: int = 0
+    kpi_total_revenue: float = 0
+    kpi_avg_margin: Optional[float] = None
+    kpi_avg_rounds: Optional[float] = None
 
 
 class OfferCreateRequest(BaseModel):

@@ -6,7 +6,9 @@ from app.db.repositories.booked_load_repo import (
     insert_booked_load,
     get_booked_load,
     get_all_booked_loads,
+    get_booked_loads_kpis,
 )
+from app.utils.period import period_since
 
 
 def _enrich_booking(record: dict) -> BookedLoadResponse:
@@ -62,11 +64,16 @@ def get_booking(
     return _enrich_booking(record) if record else None
 
 
-def list_bookings(offset: int = 0, limit: int = 20, page: int = 1, page_size: int = 20) -> PaginatedBookedLoads:
-    rows, total = get_all_booked_loads(offset=offset, limit=limit)
+def list_bookings(
+    offset: int = 0, limit: int = 20, page: int = 1, page_size: int = 20, period: str = "last_month"
+) -> PaginatedBookedLoads:
+    since = period_since(period)
+    rows, total = get_all_booked_loads(offset=offset, limit=limit, since=since)
+    kpis = get_booked_loads_kpis(since)
     return PaginatedBookedLoads(
         items=[_enrich_booking(r) for r in rows],
         total=total,
         page=page,
         page_size=page_size,
+        **kpis,
     )
