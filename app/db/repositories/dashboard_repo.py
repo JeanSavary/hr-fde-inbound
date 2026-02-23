@@ -1,6 +1,41 @@
 from app.db.connection import get_db
 
 
+def get_calls_by_date(date_str: str) -> list[dict]:
+    """Get all calls where created_at starts with date_str (YYYY-MM-DD)."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM calls WHERE created_at LIKE ?",
+            (f"{date_str}%",),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_bookings_with_loads_by_date(date_str: str) -> list[dict]:
+    """Get bookings for a date, joined with loads for rate data."""
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT bl.*, l.loadboard_rate
+            FROM booked_loads bl
+            LEFT JOIN loads l ON bl.load_id = l.load_id
+            WHERE bl.created_at LIKE ?
+        """, (f"{date_str}%",)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_offers_for_calls(call_ids: list[str]) -> list[dict]:
+    """Get offers associated with a list of call_ids."""
+    if not call_ids:
+        return []
+    placeholders = ",".join("?" for _ in call_ids)
+    with get_db() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM offers WHERE call_id IN ({placeholders})",
+            call_ids,
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def get_dashboard_data() -> dict:
     with get_db() as conn:
         calls = [
