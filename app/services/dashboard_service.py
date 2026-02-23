@@ -35,10 +35,10 @@ def _build_funnel(calls: list[dict], offers: list[dict]) -> list[FunnelStage]:
     load_matched = [c for c in authenticated if c["outcome"] != "no_loads_available"]
 
     call_ids_with_offers = {o["call_id"] for o in offers if o.get("call_id")}
-    offer_made = [c for c in calls if c["call_id"] in call_ids_with_offers]
+    offer_made = [c for c in load_matched if c["call_id"] in call_ids_with_offers]
 
-    negotiated = [c for c in calls if (c.get("negotiation_rounds") or 0) >= 1]
-    booked = [c for c in calls if c["outcome"] == "booked"]
+    negotiated = [c for c in offer_made if (c.get("negotiation_rounds") or 0) >= 1]
+    booked = [c for c in negotiated if c["outcome"] == "booked"]
 
     stages = [
         ("Inbound Calls", total),

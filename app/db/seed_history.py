@@ -28,7 +28,7 @@ def _uid() -> str:
 
 def _cid() -> str:
     """Generate a HappyRobot-style call ID."""
-    return "hr_" + _uid().replace("-", "")[:12]
+    return "hr_" + _uid().replace("-", "")[-12:]
 
 
 # ─── Timestamp helper ─────────────────────────────────────────────────────────

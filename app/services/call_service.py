@@ -13,6 +13,8 @@ from app.db.repositories.call_repo import (
     get_call_by_call_id,
     get_all_calls,
 )
+from app.db.repositories.carrier_repo import insert_interaction
+from app.db.repositories.booked_load_repo import insert_booked_load
 
 
 def log_call(req: CallLogRequest) -> CallLogResponse:
@@ -20,6 +22,31 @@ def log_call(req: CallLogRequest) -> CallLogResponse:
     call_data["outcome"] = req.outcome.value
     call_data["sentiment"] = req.sentiment.value
     result = insert_call(call_data)
+
+    # Cascade: create carrier interaction record
+    if req.mc_number:
+        insert_interaction({
+            "mc_number": str(req.mc_number),
+            "carrier_name": req.carrier_name,
+            "call_id": result["call_id"],
+            "call_length_seconds": req.duration_seconds or 0,
+            "outcome": result["outcome"],
+            "load_id": req.load_id,
+            "notes": "",
+        })
+
+    # Cascade: if booked, create booked_loads record and mark load unavailable
+    if req.outcome.value == "booked" and req.load_id:
+        insert_booked_load({
+            "load_id": req.load_id,
+            "mc_number": str(req.mc_number) if req.mc_number else "",
+            "carrier_name": req.carrier_name,
+            "agreed_rate": req.final_rate or 0,
+            "agreed_pickup_datetime": None,
+            "offer_id": None,
+            "call_id": result["call_id"],
+        })
+
     return CallLogResponse(
         id=result["id"],
         call_id=result["call_id"],
