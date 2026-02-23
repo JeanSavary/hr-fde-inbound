@@ -476,8 +476,18 @@ def list_loads(
         miles = r.get("miles", 0)
         rate_per_mile = round(r["loadboard_rate"] / miles, 2) if miles > 0 else None
 
+        # Derive status: "matching" if active carrier_thinking calls exist
+        db_status = r.get("status", "available")
+        active_thinking = r.get("active_thinking_calls", 0)
+        effective_status = "matching" if db_status == "available" and active_thinking > 0 else db_status
+
+        # Strip computed subquery fields and status before passing to model
+        extra_keys = {"pitch_count", "active_thinking_calls", "status"}
+        base = {k: v for k, v in r.items() if k not in extra_keys}
+
         load = LoadWithStatus(
-            **{k: v for k, v in r.items() if k != "pitch_count"},
+            **base,
+            status=effective_status,
             pitch_count=pitch_count,
             urgency=computed_urgency,
             days_listed=days_listed,
@@ -492,7 +502,7 @@ def list_loads(
 
     return LoadListResponse(
         loads=enriched,
-        total=total,
+        total=len(enriched) if urgency else total,
         page=page,
         page_size=page_size,
     )

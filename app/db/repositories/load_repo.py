@@ -58,7 +58,9 @@ def get_loads_paginated(
 
         rows = conn.execute(
             f"SELECT loads.*, "
-            f"(SELECT COUNT(*) FROM offers WHERE offers.load_id = loads.load_id) AS pitch_count "
+            f"(SELECT COUNT(*) FROM offers WHERE offers.load_id = loads.load_id) AS pitch_count, "
+            f"(SELECT COUNT(*) FROM calls WHERE calls.load_id = loads.load_id "
+            f"AND calls.outcome = 'carrier_thinking') AS active_thinking_calls "
             f"FROM loads {where} "
             f"{order_clause} LIMIT ? OFFSET ?",
             params + [page_size, (page - 1) * page_size],
