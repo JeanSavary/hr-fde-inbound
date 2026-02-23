@@ -79,7 +79,8 @@ def init_db() -> None:
 
             CREATE TABLE IF NOT EXISTS negotiation_settings (
                 key   TEXT PRIMARY KEY,
-                value REAL NOT NULL
+                value REAL,
+                text_value TEXT
             );
 
             CREATE TABLE IF NOT EXISTS calls (

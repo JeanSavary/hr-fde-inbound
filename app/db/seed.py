@@ -93,6 +93,18 @@ _DEFAULT_NEGOTIATION_SETTINGS = {
     "target_margin": 0.15,
     "min_margin": 0.05,
     "max_bump_above_loadboard": 0.03,
+    "max_negotiation_rounds": 3,
+    "max_offers_per_call": 3,
+    "auto_transfer_threshold": 500,
+    "deadhead_warning_miles": 150,
+    "floor_rate_protection": 1,       # bool stored as 0/1
+    "sentiment_escalation": 1,
+    "prioritize_perishables": 1,
+}
+
+_DEFAULT_TEXT_SETTINGS = {
+    "agent_greeting": "Thanks for calling, this is your AI carrier sales agent. How can I help you today?",
+    "agent_tone": "professional",
 }
 
 
@@ -105,6 +117,13 @@ def seed_negotiation_settings() -> None:
                    VALUES (?, ?)
                    ON CONFLICT(key) DO NOTHING""",
                 (key, value),
+            )
+        for key, text_value in _DEFAULT_TEXT_SETTINGS.items():
+            conn.execute(
+                """INSERT INTO negotiation_settings (key, text_value)
+                   VALUES (?, ?)
+                   ON CONFLICT(key) DO NOTHING""",
+                (key, text_value),
             )
 
 
