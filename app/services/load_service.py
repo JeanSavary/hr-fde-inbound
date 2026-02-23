@@ -1,11 +1,13 @@
 from datetime import datetime, timedelta, timezone
 
-from app.db.repositories.load_repo import get_all_loads, get_load_by_id
+from app.db.repositories.load_repo import get_all_loads, get_load_by_id, get_loads_paginated
 from app.db.repositories.negotiation_settings_repo import get_all_settings
 from app.models.load import (
     AlternativeLoad,
     Load,
+    LoadListResponse,
     LoadSearchResponse,
+    LoadWithStatus,
     PickupRescheduleRequest,
     PickupRescheduleResponse,
     SearchResultLoad,
@@ -13,6 +15,23 @@ from app.models.load import (
 from app.models.location import ResolvedLocation
 from app.db.city_data import get_location_meta
 from app.utils.geo import haversine_miles, resolve_location
+
+_PERISHABLE_KEYWORDS = {"temp-controlled", "seafood", "produce", "frozen", "perishable", "dairy", "meat"}
+
+
+def _compute_urgency(pitch_count: int, days_listed: int, commodity: str, notes: str) -> str:
+    commodity_lower = commodity.lower()
+    notes_lower = notes.lower()
+    is_perishable = any(kw in commodity_lower for kw in _PERISHABLE_KEYWORDS)
+
+    # Critical
+    if pitch_count > 8 or days_listed >= 2 or is_perishable or "dead-end" in notes_lower:
+        return "critical"
+    # High
+    if pitch_count > 4 or days_listed >= 1:
+        return "high"
+    return "normal"
+
 
 # How far beyond the requested radius we still surface alternatives
 _ALT_RADIUS_MULTIPLIER = 3
@@ -406,6 +425,77 @@ async def search_loads_by_lane(
 def get_load(load_id: str) -> Load | None:
     load = get_load_by_id(load_id)
     return Load(**load) if load else None
+
+
+def list_loads(
+    status: str | None = None,
+    equipment_type: str | None = None,
+    origin: str | None = None,
+    destination: str | None = None,
+    urgency: str | None = None,
+    page: int = 1,
+    page_size: int = 50,
+    sort: str = "pickup_datetime",
+    order: str = "asc",
+) -> LoadListResponse:
+    rows, total = get_loads_paginated(
+        status=status,
+        equipment_type=equipment_type,
+        origin=origin,
+        destination=destination,
+        page=page,
+        page_size=page_size,
+        sort=sort,
+        order=order,
+    )
+
+    now = datetime.now(timezone.utc)
+    enriched: list[LoadWithStatus] = []
+    for r in rows:
+        # Compute days_listed
+        created_at = r.get("created_at")
+        if created_at:
+            created_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            if created_dt.tzinfo is None:
+                created_dt = created_dt.replace(tzinfo=timezone.utc)
+            days_listed = max(0, (now - created_dt).days)
+        else:
+            days_listed = 0
+
+        pitch_count = r.get("pitch_count", 0)
+
+        # Compute urgency
+        computed_urgency = _compute_urgency(
+            pitch_count=pitch_count,
+            days_listed=days_listed,
+            commodity=r.get("commodity_type", ""),
+            notes=r.get("notes", ""),
+        )
+
+        # Compute rate_per_mile
+        miles = r.get("miles", 0)
+        rate_per_mile = round(r["loadboard_rate"] / miles, 2) if miles > 0 else None
+
+        load = LoadWithStatus(
+            **{k: v for k, v in r.items() if k != "pitch_count"},
+            pitch_count=pitch_count,
+            urgency=computed_urgency,
+            days_listed=days_listed,
+            rate_per_mile=rate_per_mile,
+        )
+
+        # Post-filter by urgency if specified
+        if urgency and load.urgency != urgency:
+            continue
+
+        enriched.append(load)
+
+    return LoadListResponse(
+        loads=enriched,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 _RESCHEDULE_TOLERANCE_HOURS = 6.0

@@ -31,7 +31,8 @@ def init_db() -> None:
                 miles INTEGER NOT NULL,
                 dimensions TEXT DEFAULT '',
                 status TEXT DEFAULT 'available',
-                booked_at TEXT
+                booked_at TEXT,
+                created_at TEXT DEFAULT (datetime('now'))
             );
 
             CREATE TABLE IF NOT EXISTS carrier_interactions (

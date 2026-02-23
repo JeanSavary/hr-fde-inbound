@@ -182,3 +182,20 @@ class LoadSearchResponse(BaseModel):
     radius_miles: int
     total_found: int
     total_alternatives: int = 0
+
+
+class LoadWithStatus(Load):
+    status: str = "available"
+    booked_at: Optional[str] = None
+    created_at: Optional[str] = None
+    urgency: str = "normal"
+    pitch_count: int = 0
+    days_listed: int = 0
+    rate_per_mile: Optional[float] = None
+
+
+class LoadListResponse(BaseModel):
+    loads: list[LoadWithStatus]
+    total: int
+    page: int
+    page_size: int

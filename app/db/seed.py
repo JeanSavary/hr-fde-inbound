@@ -63,6 +63,7 @@ def _make_seed_loads() -> list[dict]:
             delivery = pickup + delta
         origin_lat, origin_lng = _get_coords(r["origin"])
         dest_lat, dest_lng = _get_coords(r["destination"])
+        created_at = (pickup - timedelta(days=2)).isoformat()
         loads.append(
             {
                 "load_id": r["load_id"],
@@ -84,6 +85,7 @@ def _make_seed_loads() -> list[dict]:
                 "num_of_pieces": int(r.get("num_of_pieces", 0)),
                 "miles": int(r.get("miles", 0)),
                 "dimensions": r.get("dimensions", ""),
+                "created_at": created_at,
             }
         )
     return loads
@@ -144,8 +146,9 @@ def seed_loads() -> None:
                    (load_id, origin, origin_lat, origin_lng, destination,
                     dest_lat, dest_lng, pickup_datetime, delivery_datetime,
                     equipment_type, loadboard_rate, notes, weight,
-                    commodity_type, num_of_pieces, miles, dimensions)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    commodity_type, num_of_pieces, miles, dimensions,
+                    created_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     load["load_id"],
                     load["origin"],
@@ -164,5 +167,6 @@ def seed_loads() -> None:
                     load["num_of_pieces"],
                     load["miles"],
                     load["dimensions"],
+                    load["created_at"],
                 ),
             )

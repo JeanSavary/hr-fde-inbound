@@ -1,9 +1,12 @@
-from fastapi import APIRouter, HTTPException, Security
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Query, Security
 
 from app.config import get_settings
 from app.models.load import (
     LaneSearchRequest,
     Load,
+    LoadListResponse,
     LoadSearchRequest,
     LoadSearchResponse,
     PickupRescheduleRequest,
@@ -13,6 +16,7 @@ from app.routes._auth import verify_api_key
 from app.services.load_service import (
     check_pickup_reschedule,
     get_load,
+    list_loads,
     search_loads,
     search_loads_by_lane,
 )
@@ -85,6 +89,52 @@ async def reschedule_pickup_route(body: PickupRescheduleRequest):
     if error:
         raise HTTPException(404, error)
     return result
+
+
+@router.get(
+    "",
+    response_model=LoadListResponse,
+    dependencies=[Security(verify_api_key)],
+)
+async def list_loads_route(
+    status: Optional[str] = Query(
+        None, description="Filter by load status (available, booked, or 'all')"
+    ),
+    equipment_type: Optional[str] = Query(
+        None, description="Filter by equipment type (dry_van, reefer, flatbed, step_deck, power_only)"
+    ),
+    origin: Optional[str] = Query(
+        None, description="Filter by origin city (partial match)"
+    ),
+    destination: Optional[str] = Query(
+        None, description="Filter by destination city (partial match)"
+    ),
+    urgency: Optional[str] = Query(
+        None, description="Filter by urgency: critical, high, normal"
+    ),
+    sort: str = Query(
+        "pickup_datetime", description="Sort field"
+    ),
+    order: str = Query(
+        "asc", description="Sort order: asc or desc"
+    ),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(50, ge=1, le=100, description="Results per page"),
+):
+    """List all loads with optional filtering, sorting, and pagination."""
+    # Default to 'available' status; 'all' means no status filter
+    effective_status = None if status == "all" else (status or "available")
+    return list_loads(
+        status=effective_status,
+        equipment_type=equipment_type,
+        origin=origin,
+        destination=destination,
+        urgency=urgency,
+        page=page,
+        page_size=page_size,
+        sort=sort,
+        order=order,
+    )
 
 
 @router.get(
