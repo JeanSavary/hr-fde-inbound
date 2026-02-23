@@ -16,6 +16,7 @@ class RateIntelligence(BaseModel):
 
 
 class DashboardMetrics(BaseModel):
+    period: str = "today"
     total_calls: int
     avg_duration_seconds: Optional[float]
     calls_by_outcome: dict[str, int]
@@ -30,7 +31,7 @@ class DashboardMetrics(BaseModel):
     recent_calls: list[dict]
     recent_offers: list[dict]
 
-    # Daily KPIs
+    # Period KPIs
     calls_today: int = 0
     calls_trend: Optional[str] = None
     booked_today: int = 0

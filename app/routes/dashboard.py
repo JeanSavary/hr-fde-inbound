@@ -1,9 +1,18 @@
-from fastapi import APIRouter, Security
+from enum import Enum
+
+from fastapi import APIRouter, Query, Security
 from app.models.dashboard import DashboardMetrics
 from app.services.dashboard_service import get_dashboard_metrics
 from app.routes._auth import verify_api_key
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
+
+
+class Period(str, Enum):
+    today = "today"
+    last_week = "last_week"
+    last_month = "last_month"
+    all_time = "all_time"
 
 
 @router.get(
@@ -12,6 +21,8 @@ router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
     dependencies=[Security(verify_api_key)],
     include_in_schema=True,
 )
-async def dashboard_metrics():
+async def dashboard_metrics(
+    period: Period = Query(Period.last_month),
+):
     """Aggregated metrics for the operational dashboard."""
-    return get_dashboard_metrics()
+    return get_dashboard_metrics(period=period.value)
