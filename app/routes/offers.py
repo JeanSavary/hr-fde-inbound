@@ -23,9 +23,7 @@ async def create_offer_route(req: OfferCreateRequest):
     ns = get_all_settings()
     target_margin = ns.get("target_margin", 0.15)
     max_bump = ns.get("max_bump_above_loadboard", 0.03)
-    response, error = create_offer(
-        req, 1 - target_margin, 1 + max_bump
-    )
+    response, error = create_offer(req, 1 - target_margin, 1 + max_bump)
     if error:
         raise HTTPException(404, error)
     return response
@@ -45,9 +43,7 @@ async def analyze_offer_route(req: OfferAnalysisRequest):
     ns = get_all_settings()
     target_margin = ns.get("target_margin", 0.15)
     max_bump = ns.get("max_bump_above_loadboard", 0.03)
-    result, error = analyze_offer(
-        req, 1 - target_margin, 1 + max_bump
-    )
+    result, error = analyze_offer(req, 1 - target_margin, 1 + max_bump)
     if error:
         status = 409 if "already booked" in error else 404
         raise HTTPException(status, error)

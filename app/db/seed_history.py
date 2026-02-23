@@ -2175,8 +2175,12 @@ def seed_historical_data() -> None:
     # Wipe only deterministic seed data (IDs start with 00000000-0000-4000),
     # preserving any real calls/offers/interactions created via the API.
     with get_db() as conn:
-        conn.execute("DELETE FROM carrier_interactions WHERE id LIKE '00000000-0000-4000%'")
-        conn.execute("DELETE FROM offers WHERE offer_id LIKE '00000000-0000-4000%'")
+        conn.execute(
+            "DELETE FROM carrier_interactions WHERE id LIKE '00000000-0000-4000%'"
+        )
+        conn.execute(
+            "DELETE FROM offers WHERE offer_id LIKE '00000000-0000-4000%'"
+        )
         conn.execute("DELETE FROM calls WHERE id LIKE '00000000-0000-4000%'")
 
     # Re-apply bookings (seed_loads already wiped booked_loads)

@@ -502,9 +502,7 @@ def list_loads(
 
         miles = r.get("miles", 0)
         floor_rate = r["loadboard_rate"] * (1 - target_margin)
-        rate_per_mile = (
-            round(floor_rate / miles, 2) if miles > 0 else None
-        )
+        rate_per_mile = round(floor_rate / miles, 2) if miles > 0 else None
 
         db_status = r.get("status", "available")
         active_thinking = r.get("active_thinking_calls", 0)
@@ -532,7 +530,9 @@ def list_loads(
         enriched.append(load)
 
     # KPIs (period + status only, independent of table filters)
-    kpi_data = get_loads_kpis(since=since, status=status, target_margin=target_margin)
+    kpi_data = get_loads_kpis(
+        since=since, status=status, target_margin=target_margin
+    )
     critical_count = 0
     for r in kpi_data["urgency_data"]:
         dl = _days_listed_from_created_at(r.get("created_at"), now)

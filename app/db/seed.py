@@ -137,7 +137,9 @@ def seed_loads() -> None:
             "WHERE status='booked' AND load_id NOT IN "
             "(SELECT load_id FROM booked_loads WHERE id LIKE 'BK-%')"
         )
-        conn.execute("DELETE FROM booked_loads WHERE id LIKE '00000000-0000-4000%'")
+        conn.execute(
+            "DELETE FROM booked_loads WHERE id LIKE '00000000-0000-4000%'"
+        )
 
         if conn.execute("SELECT COUNT(*) FROM loads").fetchone()[0] > 0:
             return
