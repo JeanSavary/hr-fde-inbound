@@ -5,11 +5,9 @@ Deterministic historical data seed for the Acme Logistics demo dashboard.
 Produces ~80 realistic calls, offers, and carrier interactions spread over
 the past 30 days so the dashboard never cold-starts.
 
-On each server startup:
-  - _apply_bookings() ALWAYS re-runs because seed_loads() wipes booked_loads
-    and resets load statuses on every startup.
-  - Calls / offers / carrier_interactions are only inserted once
-    (idempotent: skipped if calls table already has rows).
+On each server startup all seed data is wiped and re-inserted with
+timestamps relative to the current date, so the dashboard always
+shows recent activity regardless of when the server was last restarted.
 """
 
 import json
@@ -34,7 +32,8 @@ def _cid() -> str:
 
 
 # ─── Timestamp helper ─────────────────────────────────────────────────────────
-_BASE = datetime(2026, 2, 23, 0, 0, 0, tzinfo=timezone.utc)
+# Set dynamically at the start of each seed run in seed_historical_data()
+_BASE: datetime | None = None
 
 
 def _ts(days_ago: int, hour: int = 10, minute: int = 0) -> str:
@@ -452,7 +451,7 @@ _FAILED = [
     (13, "LD-1035", "Memphis, TN",      "Dallas, TX",       "dry_van",   452, 1350, 1800, 1490, 1495,  6, 10, 29, 298, 3, "frustrated"),
     (5,  "LD-1036", "New Orleans, LA",  "Houston, TX",      "dry_van",   348,  850, 1200,  940,    0,  5, 14, 13, 223, 2, "neutral"),
     (3,  "LD-1038", "Fort Worth, TX",   "San Antonio, TX",  "dry_van",   264,  580,  900,  640,    0,  4,  9, 47, 198, 2, "neutral"),
-    (10, "LD-1039", "Dallas, TX",       "Fort Worth, TX",   "dry_van",    32,  250,  450,  275,  278,  3, 11, 22, 198, 3, "frustrated"),
+    (10, "LD-1039", "Dallas, TX",       "Fort Worth, TX",   "dry_van",    32,  250,  450,  275,  278,  1, 11, 22, 198, 3, "frustrated"),
 ]
 
 # ─── No-loads specs ───────────────────────────────────────────────────────────
@@ -478,7 +477,7 @@ _NO_LOADS = [
     (9,  "Sacramento, CA",     "reefer",     "east to Nevada",       7,  8, 44, 110),
     (3,  "Milwaukee, WI",      "step_deck",  "south",                6, 11, 22, 85),
     (0,  "Louisville, KY",     "dry_van",    "southeast",            4,  9, 15, 90),
-    (12, "Oklahoma City, OK",  "flatbed",    "west",                 2, 13, 38, 80),
+    (12, "Oklahoma City, OK",  "flatbed",    "west",                 0,  7, 38, 80),
 ]
 
 # ─── Invalid carrier specs ────────────────────────────────────────────────────
@@ -494,7 +493,7 @@ _INVALID_CALLS = [
     (4, "inactive authority",   15, 13, 22, 48),
     (2, "out-of-service",       12,  9, 15, 43),
     (3, "inactive authority",    8, 15, 38, 51),
-    (0, "out-of-service",        4, 10, 7,  46),
+    (0, "out-of-service",        0,  9, 7,  46),
 ]
 
 # ─── Carrier-thinking specs ───────────────────────────────────────────────────
@@ -507,7 +506,7 @@ _THINKING = [
     (2,  "LD-1044", "Chicago, IL",   "Indianapolis, IN","step_deck", 184, 720, 900,  5, 14, 17, 210),
     (9,  "LD-1045", "Phoenix, AZ",   "Los Angeles, CA", "step_deck", 373, 850,1050,  3,  9, 33, 180),
     (5,  "LD-1042", "Houston, TX",   "Dallas, TX",      "step_deck", 239, 980,1200,  2, 11,  7, 190),
-    (11, "LD-1046", "Dallas, TX",    "Memphis, TN",     "step_deck", 452,1200,1500,  1, 15, 48, 175),
+    (11, "LD-1046", "Dallas, TX",    "Memphis, TN",     "step_deck", 452,1200,1500,  0,  8, 48, 175),
 ]
 
 # ─── Transferred-to-ops specs ─────────────────────────────────────────────────
@@ -986,17 +985,29 @@ def _apply_bookings() -> None:
 
 
 def seed_historical_data() -> None:
+    """Wipe and re-seed all demo data on every startup.
+
+    Timestamps are anchored to today so the dashboard always shows
+    recent activity regardless of when the server was last restarted.
     """
-    Always re-applies bookings (seed_loads wipes them on startup).
-    Only inserts calls/offers/interactions once — idempotent.
-    """
+    global _BASE, _COUNTER
+
+    # Anchor all timestamps to today at midnight UTC
+    _BASE = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    _COUNTER = 0  # Reset for deterministic IDs
+
+    # Wipe previous seed data
+    with get_db() as conn:
+        conn.execute("DELETE FROM carrier_interactions")
+        conn.execute("DELETE FROM offers")
+        conn.execute("DELETE FROM calls")
+
+    # Re-apply bookings (seed_loads already wiped booked_loads)
     _apply_bookings()
 
-    with get_db() as conn:
-        existing = conn.execute("SELECT COUNT(*) FROM calls").fetchone()[0]
-        if existing > 0:
-            return  # already seeded
-
+    # Re-build and insert calls, offers, interactions
     calls, offers, interactions = _build_data()
 
     with get_db() as conn:

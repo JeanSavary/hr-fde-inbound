@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
     "/metrics",
     response_model=DashboardMetrics,
     dependencies=[Security(verify_api_key)],
-    include_in_schema=False,
+    include_in_schema=True,
 )
 async def dashboard_metrics():
     """Aggregated metrics for the operational dashboard."""

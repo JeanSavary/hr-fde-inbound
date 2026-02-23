@@ -23,6 +23,17 @@ def get_bookings_with_loads_by_date(date_str: str) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def get_all_bookings_with_loads() -> list[dict]:
+    """Get all bookings joined with loads for rate data."""
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT bl.*, l.loadboard_rate
+            FROM booked_loads bl
+            LEFT JOIN loads l ON bl.load_id = l.load_id
+        """).fetchall()
+    return [dict(r) for r in rows]
+
+
 def get_offers_for_calls(call_ids: list[str]) -> list[dict]:
     """Get offers associated with a list of call_ids."""
     if not call_ids:

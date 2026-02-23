@@ -3,6 +3,7 @@ from app.db.repositories.dashboard_repo import (
     get_dashboard_data,
     get_calls_by_date,
     get_bookings_with_loads_by_date,
+    get_all_bookings_with_loads,
     get_offers_for_calls,
 )
 from app.models.dashboard import DashboardMetrics, FunnelStage, RateIntelligence
@@ -119,8 +120,9 @@ def get_dashboard_metrics() -> DashboardMetrics:
     today_offers = get_offers_for_calls(today_call_ids)
     funnel = _build_funnel(calls_today, today_offers)
 
-    # Rate intelligence
-    rate_intel = _build_rate_intelligence(bookings_today)
+    # Rate intelligence (all bookings, not just today)
+    all_bookings = get_all_bookings_with_loads()
+    rate_intel = _build_rate_intelligence(all_bookings)
 
     # Merge everything
     base_data.update({
