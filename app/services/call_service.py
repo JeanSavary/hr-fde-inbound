@@ -16,7 +16,6 @@ from app.db.repositories.call_repo import (
 )
 from app.utils.period import period_since
 from app.db.repositories.carrier_repo import insert_interaction
-from app.db.repositories.booked_load_repo import insert_booked_load
 
 
 def log_call(req: CallLogRequest) -> CallLogResponse:
@@ -39,19 +38,8 @@ def log_call(req: CallLogRequest) -> CallLogResponse:
             }
         )
 
-    # Cascade: if booked, create booked_loads record and mark load unavailable
-    if req.outcome.value == "booked" and req.load_id:
-        insert_booked_load(
-            {
-                "load_id": req.load_id,
-                "mc_number": str(req.mc_number) if req.mc_number else "",
-                "carrier_name": req.carrier_name,
-                "agreed_rate": req.final_rate or 0,
-                "agreed_pickup_datetime": None,
-                "offer_id": None,
-                "call_id": result["call_id"],
-            }
-        )
+    # Booking is handled separately via POST /api/booked-loads
+    # (triggered by the HappyRobot platform after the call)
 
     return CallLogResponse(
         id=result["id"],
