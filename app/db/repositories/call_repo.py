@@ -125,8 +125,10 @@ def get_calls_kpis(since: Optional[str] = None) -> dict:
             f"  COUNT(*) AS total, "
             f"  SUM(CASE WHEN outcome='booked' THEN 1 ELSE 0 END) AS booked, "
             f"  COALESCE(SUM(duration_seconds), 0) AS total_duration, "
-            f"  AVG(CASE WHEN outcome='booked' AND initial_rate > 0 AND final_rate IS NOT NULL "
-            f"      THEN (final_rate * 1.0 / initial_rate) * 100 END) AS avg_neg_pct "
+            f"  AVG(CASE WHEN outcome='booked'"
+            f"      AND initial_rate > 0 AND final_rate IS NOT NULL"
+            f"      THEN (final_rate - initial_rate) * 100.0"
+            f"           / initial_rate END) AS avg_neg_pct "
             f"FROM calls {where}",
             params,
         ).fetchone()
