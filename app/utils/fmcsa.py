@@ -49,6 +49,16 @@ def normalize_mc(raw: str) -> str:
     return re.sub(r"[^\d]", "", text)
 
 
+def ensure_mc_prefix(mc: str) -> str:
+    """Ensure MC number has 'MC-' prefix for DB storage."""
+    if not mc:
+        return mc
+    if mc.startswith("MC-"):
+        return mc
+    digits = re.sub(r"[^\d]", "", mc)
+    return f"MC-{digits}" if digits else mc
+
+
 async def lookup_fmcsa(mc_number: str, web_key: str = "") -> FMCSACarrier:
     mc = normalize_mc(mc_number)
 

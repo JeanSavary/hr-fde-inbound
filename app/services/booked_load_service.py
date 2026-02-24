@@ -13,6 +13,7 @@ from app.db.repositories.booked_load_repo import (
     get_booked_loads_kpis,
 )
 from app.db.repositories.negotiation_settings_repo import get_all_settings
+from app.utils.fmcsa import ensure_mc_prefix
 from app.utils.period import period_since
 
 
@@ -56,7 +57,7 @@ def book_load(
     record = insert_booked_load(
         {
             "load_id": req.load_id,
-            "mc_number": req.mc_number,
+            "mc_number": ensure_mc_prefix(req.mc_number),
             "carrier_name": req.carrier_name,
             "agreed_rate": agreed_rate,
             "agreed_pickup_datetime": agreed_pickup_datetime,

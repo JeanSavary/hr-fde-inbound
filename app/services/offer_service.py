@@ -9,6 +9,7 @@ from app.models.offer import (
 )
 from app.db.repositories.load_repo import get_load_by_id
 from app.db.repositories.offer_repo import insert_offer
+from app.utils.fmcsa import ensure_mc_prefix
 
 # ── Broker strategy thresholds ──────────────────────────
 _RATE_REJECT_MULTIPLIER = 1.20
@@ -223,7 +224,7 @@ def create_offer(
         {
             "call_id": req.call_id,
             "load_id": req.load_id,
-            "mc_number": req.mc_number,
+            "mc_number": ensure_mc_prefix(req.mc_number),
             "offer_amount": req.offer_amount,
             "offer_type": req.offer_type.value,
             "round_number": req.round_number,

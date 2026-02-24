@@ -17,6 +17,7 @@ from app.db.repositories.call_repo import (
 )
 from app.utils.period import period_since
 from app.db.repositories.carrier_repo import insert_interaction
+from app.utils.fmcsa import ensure_mc_prefix
 
 log = logging.getLogger(__name__)
 
@@ -28,6 +29,8 @@ def log_call(req: CallLogRequest) -> CallLogResponse:
     call_data = req.model_dump()
     call_data["outcome"] = req.outcome.value
     call_data["sentiment"] = req.sentiment.value
+    if call_data.get("mc_number"):
+        call_data["mc_number"] = ensure_mc_prefix(str(call_data["mc_number"]))
     result = insert_call(call_data)
 
     log.info("Call inserted: id=%s call_id=%s created_at=%s",
@@ -37,7 +40,7 @@ def log_call(req: CallLogRequest) -> CallLogResponse:
     if req.mc_number:
         insert_interaction(
             {
-                "mc_number": str(req.mc_number),
+                "mc_number": ensure_mc_prefix(str(req.mc_number)),
                 "carrier_name": req.carrier_name,
                 "call_id": result["call_id"],
                 "call_length_seconds": req.duration_seconds or 0,

@@ -7,6 +7,7 @@ from app.db.repositories.carrier_repo import (
     insert_interaction,
     get_interactions_by_mc,
 )
+from app.utils.fmcsa import ensure_mc_prefix
 
 
 def log_interaction(
@@ -14,7 +15,7 @@ def log_interaction(
 ) -> CarrierInteractionResponse:
     record = insert_interaction(
         {
-            "mc_number": req.mc_number,
+            "mc_number": ensure_mc_prefix(req.mc_number),
             "carrier_name": req.carrier_name,
             "call_id": req.call_id,
             "call_length_seconds": req.call_length_seconds,
