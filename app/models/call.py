@@ -72,3 +72,4 @@ class CallListResponse(BaseModel):
     kpi_booking_rate: float = 0
     kpi_avg_duration: int = 0
     kpi_total_duration: int = 0
+    kpi_avg_negotiation_pct: float = 0

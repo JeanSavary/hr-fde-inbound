@@ -124,7 +124,9 @@ def get_calls_kpis(since: Optional[str] = None) -> dict:
             f"SELECT "
             f"  COUNT(*) AS total, "
             f"  SUM(CASE WHEN outcome='booked' THEN 1 ELSE 0 END) AS booked, "
-            f"  COALESCE(SUM(duration_seconds), 0) AS total_duration "
+            f"  COALESCE(SUM(duration_seconds), 0) AS total_duration, "
+            f"  AVG(CASE WHEN outcome='booked' AND initial_rate > 0 AND final_rate IS NOT NULL "
+            f"      THEN (final_rate * 1.0 / initial_rate) * 100 END) AS avg_neg_pct "
             f"FROM calls {where}",
             params,
         ).fetchone()
@@ -132,6 +134,7 @@ def get_calls_kpis(since: Optional[str] = None) -> dict:
     total = row[0] or 0
     booked = row[1] or 0
     total_duration = row[2] or 0
+    avg_neg_pct = row[3]
 
     return {
         "kpi_total_calls": total,
@@ -140,4 +143,5 @@ def get_calls_kpis(since: Optional[str] = None) -> dict:
         else 0,
         "kpi_avg_duration": round(total_duration / total) if total > 0 else 0,
         "kpi_total_duration": total_duration,
+        "kpi_avg_negotiation_pct": round(avg_neg_pct, 1) if avg_neg_pct else 0,
     }
