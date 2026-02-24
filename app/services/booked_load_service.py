@@ -12,6 +12,7 @@ from app.db.repositories.booked_load_repo import (
     get_all_booked_loads,
     get_booked_loads_kpis,
 )
+from app.db.repositories.negotiation_settings_repo import get_all_settings
 from app.utils.period import period_since
 
 
@@ -38,10 +39,13 @@ def book_load(
     if load.get("status") == "booked":
         return None, f"Load {req.load_id} is already booked"
 
+    ns = get_all_settings()
+    target_margin = ns.get("target_margin", 0.15)
+    floor_rate = round(load["loadboard_rate"] * (1 - target_margin), 2)
     agreed_rate = (
         req.agreed_rate
         if req.agreed_rate is not None
-        else load["loadboard_rate"]
+        else floor_rate
     )
     agreed_pickup_datetime = (
         req.agreed_pickup_datetime
