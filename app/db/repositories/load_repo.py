@@ -21,6 +21,23 @@ _ALLOWED_SORT_FIELDS = {
 _ALLOWED_ORDER = {"asc", "desc"}
 
 
+def _build_order_clause(sort_by: str, sort_order: str) -> str:
+    """Build a multi-column ORDER BY clause from comma-separated sort fields."""
+    fields = [s.strip() for s in sort_by.split(",") if s.strip()]
+    orders = [s.strip() for s in sort_order.split(",") if s.strip()]
+    # Pad orders to match fields length
+    while len(orders) < len(fields):
+        orders.append("asc")
+
+    parts: list[str] = []
+    for field, ord_ in zip(fields, orders):
+        if field in _ALLOWED_SORT_FIELDS:
+            safe_ord = ord_.upper() if ord_.lower() in _ALLOWED_ORDER else "ASC"
+            parts.append(f"loads.{field} {safe_ord}")
+
+    return f"ORDER BY {', '.join(parts)}" if parts else "ORDER BY loads.pickup_datetime ASC"
+
+
 def get_loads_paginated(
     status: str | None = None,
     equipment_type: str | None = None,
@@ -29,8 +46,9 @@ def get_loads_paginated(
     since: str | None = None,
     page: int = 1,
     page_size: int = 50,
-    sort: str = "pickup_datetime",
-    order: str = "asc",
+    sort_by: str = "pickup_datetime",
+    sort_order: str = "asc",
+    skip_pagination: bool = False,
 ) -> tuple[list[dict], int]:
     clauses: list[str] = []
     params: list = []
@@ -53,28 +71,28 @@ def get_loads_paginated(
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
 
-    # Validate sort/order against whitelist to prevent SQL injection
-    if sort not in _ALLOWED_SORT_FIELDS:
-        sort = "pickup_datetime"
-    if order.lower() not in _ALLOWED_ORDER:
-        order = "asc"
+    order_clause = _build_order_clause(sort_by, sort_order)
 
-    order_clause = f"ORDER BY loads.{sort} {order.upper()}"
+    select_expr = (
+        f"SELECT loads.*, "
+        f"(SELECT COUNT(*) FROM offers WHERE offers.load_id = loads.load_id) AS pitch_count, "
+        f"(SELECT COUNT(*) FROM calls WHERE calls.load_id = loads.load_id "
+        f"AND calls.outcome = 'carrier_thinking') AS active_thinking_calls "
+        f"FROM loads {where} {order_clause}"
+    )
 
     with get_db() as conn:
         total = conn.execute(
             f"SELECT COUNT(*) FROM loads {where}", params
         ).fetchone()[0]
 
-        rows = conn.execute(
-            f"SELECT loads.*, "
-            f"(SELECT COUNT(*) FROM offers WHERE offers.load_id = loads.load_id) AS pitch_count, "
-            f"(SELECT COUNT(*) FROM calls WHERE calls.load_id = loads.load_id "
-            f"AND calls.outcome = 'carrier_thinking') AS active_thinking_calls "
-            f"FROM loads {where} "
-            f"{order_clause} LIMIT ? OFFSET ?",
-            params + [page_size, (page - 1) * page_size],
-        ).fetchall()
+        if skip_pagination:
+            rows = conn.execute(select_expr, params).fetchall()
+        else:
+            rows = conn.execute(
+                f"{select_expr} LIMIT ? OFFSET ?",
+                params + [page_size, (page - 1) * page_size],
+            ).fetchall()
 
     return [dict(r) for r in rows], total
 

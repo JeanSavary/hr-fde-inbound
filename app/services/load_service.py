@@ -459,6 +459,18 @@ def _days_listed_from_created_at(created_at: str | None, now: datetime) -> int:
     return max(0, (now - created_dt).days)
 
 
+_URGENCY_RANK = {"critical": 0, "high": 1, "normal": 2}
+
+_PYTHON_SORT_KEY = {
+    "urgency": lambda l: _URGENCY_RANK.get(l.urgency, 2),
+    "pickup_datetime": lambda l: l.pickup_datetime or "",
+    "loadboard_rate": lambda l: l.loadboard_rate or 0,
+    "miles": lambda l: l.miles or 0,
+    "created_at": lambda l: l.created_at or "",
+    "weight": lambda l: l.weight or 0,
+}
+
+
 def list_loads(
     status: str | None = None,
     equipment_type: str | None = None,
@@ -468,20 +480,37 @@ def list_loads(
     period: str = "last_month",
     page: int = 1,
     page_size: int = 50,
-    sort: str = "pickup_datetime",
-    order: str = "asc",
+    sort_by: str = "pickup_datetime",
+    sort_order: str = "asc",
 ) -> LoadListResponse:
     since = period_since(period)
+
+    # Parse multi-field sort
+    sort_fields = [s.strip() for s in sort_by.split(",") if s.strip()]
+    sort_orders = [s.strip() for s in sort_order.split(",") if s.strip()]
+    while len(sort_orders) < len(sort_fields):
+        sort_orders.append("asc")
+
+    # urgency is computed in Python, so when it's a sort field we must
+    # fetch all matching rows, enrich, sort in Python, then paginate.
+    has_urgency_sort = "urgency" in sort_fields
+
+    # Build DB-level sort fields (exclude urgency)
+    db_pairs = [(f, o) for f, o in zip(sort_fields, sort_orders) if f != "urgency"]
+    db_sort_by = ",".join(f for f, _ in db_pairs) or "pickup_datetime"
+    db_sort_order = ",".join(o for _, o in db_pairs) or "asc"
+
     rows, total = get_loads_paginated(
         status=status,
         equipment_type=equipment_type,
         origin=origin,
         destination=destination,
         since=since,
-        page=page,
-        page_size=page_size,
-        sort=sort,
-        order=order,
+        page=page if not has_urgency_sort else 1,
+        page_size=page_size if not has_urgency_sort else 0,
+        sort_by=db_sort_by,
+        sort_order=db_sort_order,
+        skip_pagination=has_urgency_sort,
     )
 
     ns = get_all_settings()
@@ -529,6 +558,17 @@ def list_loads(
 
         enriched.append(load)
 
+    # Python-level multi-field sort (uses stable sort in reverse priority order)
+    if has_urgency_sort:
+        for field, ord_ in reversed(list(zip(sort_fields, sort_orders))):
+            key_fn = _PYTHON_SORT_KEY.get(field)
+            if key_fn:
+                enriched.sort(key=key_fn, reverse=(ord_.lower() == "desc"))
+        # Manual pagination
+        total = len(enriched)
+        start = (page - 1) * page_size
+        enriched = enriched[start : start + page_size]
+
     # KPIs (period + status only, independent of table filters)
     kpi_data = get_loads_kpis(
         since=since, status=status, target_margin=target_margin
@@ -547,7 +587,7 @@ def list_loads(
 
     return LoadListResponse(
         loads=enriched,
-        total=len(enriched) if urgency else total,
+        total=len(enriched) if urgency and not has_urgency_sort else total,
         page=page,
         page_size=page_size,
         kpi_total_loads=kpi_data["total_loads"],

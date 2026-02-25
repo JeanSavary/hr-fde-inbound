@@ -117,8 +117,14 @@ async def list_loads_route(
     period: Period = Query(
         Period.last_month, description="Time period filter"
     ),
-    sort: str = Query("pickup_datetime", description="Sort field"),
-    order: str = Query("asc", description="Sort order: asc or desc"),
+    sort_by: str = Query(
+        "pickup_datetime",
+        description="Comma-separated sort fields (e.g. 'urgency,pickup_datetime')",
+    ),
+    sort_order: str = Query(
+        "asc",
+        description="Comma-separated sort orders matching sort_by (e.g. 'desc,asc')",
+    ),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=100, description="Results per page"),
 ):
@@ -134,8 +140,8 @@ async def list_loads_route(
         period=period.value,
         page=page,
         page_size=page_size,
-        sort=sort,
-        order=order,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
 
 
