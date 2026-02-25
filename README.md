@@ -4,24 +4,43 @@ FastAPI backend for the HappyRobot voice-agent demo. Handles carrier verificatio
 
 ## Quick Start
 
-### Local (uv)
+### 1. Configure environment
 
 ```bash
-cp .env.example .env   # fill in your values
+cp .env.example .env
+```
+
+Open `.env` and set your own `API_KEY` — generate one with:
+
+```bash
+openssl rand -hex 32
+```
+
+> **Important:** This same `API_KEY` must be set in the frontend project's `.env` as `NEXT_PUBLIC_API_KEY` (or equivalent) so the dashboard can authenticate with this backend.
+
+### 2a. Run locally (uv)
+
+```bash
 uv sync --group dev
 uv run uvicorn app.main:app --reload
 ```
 
-Server: **http://localhost:8000** | Docs: **http://localhost:8000/docs**
-
-### Docker
+### 2b. Run with Docker
 
 ```bash
-cp .env.example .env   # fill in your values
+docker build -t hr-fde-backend .
+docker run --env-file .env -p 8000:8000 hr-fde-backend
+```
+
+Or with Docker Compose (includes ngrok tunnel):
+
+```bash
 docker compose up --build
 ```
 
-### Expose via ngrok (for HappyRobot testing)
+Server: **http://localhost:8000** | Docs: **http://localhost:8000/docs**
+
+### 3. Expose via ngrok (for HappyRobot testing)
 
 Add your `NGROK_AUTHTOKEN` to `.env`, then:
 
@@ -29,17 +48,16 @@ Add your `NGROK_AUTHTOKEN` to `.env`, then:
 ./scripts/tunnel.sh
 ```
 
-The public HTTPS URL is printed in the terminal -- paste it into the HappyRobot platform.
+The public HTTPS URL is printed in the terminal — paste it into the HappyRobot platform.
 
 ---
 
-## Deploy to Railway
+## Deploy to Fly.io / Railway
 
 1. Push this repo to GitHub.
-2. Create a new project on [Railway](https://railway.app) and connect the repo.
-3. Add environment variables in the Railway dashboard (see table below).
-4. Railway auto-deploys from the `Dockerfile`. The health check hits `/health`.
-5. Your public URL is shown in the Railway dashboard under **Settings > Networking > Public Networking**.
+2. Create a new project and connect the repo.
+3. Add environment variables (see table below).
+4. Auto-deploys from the `Dockerfile`. The health check hits `/health`.
 
 ---
 
