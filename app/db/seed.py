@@ -50,7 +50,7 @@ def _make_seed_loads() -> list[dict]:
         raw_loads = json.load(f)
 
     loads: list[dict] = []
-    for r in raw_loads:
+    for i, r in enumerate(raw_loads):
         pickup = datetime.fromisoformat(
             r["pickup_datetime"].replace("Z", "+00:00")
         )
@@ -59,7 +59,8 @@ def _make_seed_loads() -> list[dict]:
         )
         delta = delivery - pickup
         if pickup < min_pickup:
-            pickup = min_pickup
+            # Spread loads across the next 5 days so they don't share a date
+            pickup = min_pickup + timedelta(days=i % 5, hours=(i * 3) % 12)
             delivery = pickup + delta
         origin_lat, origin_lng = _get_coords(r["origin"])
         dest_lat, dest_lng = _get_coords(r["destination"])
