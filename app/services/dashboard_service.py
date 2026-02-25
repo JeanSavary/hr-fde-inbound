@@ -63,39 +63,71 @@ def _compute_conversion_trend(current: float, previous: float) -> str | None:
 
 # ── Funnel ───────────────────────────────────────────────────────────────────
 
+_FUNNEL_STAGE_NAMES = [
+    "Inbound Calls",  # 0
+    "Authenticated",  # 1
+    "Load Matched",   # 2
+    "Offer Made",     # 3
+    "Negotiated",     # 4
+    "Booked",         # 5
+]
+
+# Outcome → minimum funnel stage the call must have reached.
+# A "booked" call necessarily went through all prior stages, etc.
+_OUTCOME_MIN_STAGE: dict[str, int] = {
+    "invalid_carrier": 0,
+    "no_loads_available": 1,
+    "dropped_call": 0,
+    "transferred_to_ops": 0,
+    "carrier_thinking": 3,
+    "negotiation_failed": 4,
+    "booked": 5,
+}
+
+
+def _call_max_stage(call: dict, offer_call_ids: set[str]) -> int:
+    """Return the highest funnel stage index (0–5) this call reached."""
+    outcome = call["outcome"]
+
+    # Minimum stage implied by the outcome itself
+    implied = _OUTCOME_MIN_STAGE.get(outcome, 0)
+
+    # Progressive stage from intermediate call data
+    progressive = 0
+    if outcome != "invalid_carrier":
+        progressive = 1
+        if outcome != "no_loads_available":
+            progressive = 2
+            if call["call_id"] in offer_call_ids:
+                progressive = 3
+                if (call.get("negotiation_rounds") or 0) >= 1:
+                    progressive = 4
+                    if outcome == "booked":
+                        progressive = 5
+
+    return max(implied, progressive)
+
 
 def _build_funnel(calls: list[dict], offers: list[dict]) -> list[FunnelStage]:
     total = len(calls)
     if total == 0:
         return []
 
-    authenticated = [c for c in calls if c["outcome"] != "invalid_carrier"]
-    load_matched = [
-        c for c in authenticated if c["outcome"] != "no_loads_available"
-    ]
+    offer_call_ids = {o["call_id"] for o in offers if o.get("call_id")}
+    stage_counts = [0] * len(_FUNNEL_STAGE_NAMES)
 
-    call_ids_with_offers = {o["call_id"] for o in offers if o.get("call_id")}
-    offer_made = [
-        c for c in load_matched if c["call_id"] in call_ids_with_offers
-    ]
-
-    negotiated = [
-        c for c in offer_made if (c.get("negotiation_rounds") or 0) >= 1
-    ]
-    booked = [c for c in negotiated if c["outcome"] == "booked"]
-
-    stages = [
-        ("Inbound Calls", total),
-        ("Authenticated", len(authenticated)),
-        ("Load Matched", len(load_matched)),
-        ("Offer Made", len(offer_made)),
-        ("Negotiated", len(negotiated)),
-        ("Booked", len(booked)),
-    ]
+    for c in calls:
+        max_stage = _call_max_stage(c, offer_call_ids)
+        for i in range(max_stage + 1):
+            stage_counts[i] += 1
 
     return [
-        FunnelStage(stage=name, count=count, pct=round(count / total * 100))
-        for name, count in stages
+        FunnelStage(
+            stage=_FUNNEL_STAGE_NAMES[i],
+            count=stage_counts[i],
+            pct=round(stage_counts[i] / total * 100),
+        )
+        for i in range(len(_FUNNEL_STAGE_NAMES))
     ]
 
 
